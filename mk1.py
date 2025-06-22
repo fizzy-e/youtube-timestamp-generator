@@ -7,37 +7,33 @@
 import re
 import requests
 from yt_dlp import YoutubeDL
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM # needed for ai
 
 def fetch_transcript(video):
 
     with YoutubeDL({'skip_download':True, 'quiet':True}) as ydl:
         info = ydl.extract_info(video, download=False)
-        # now we have the video's meta data stored in 'info' dictionary
+        # now we have a dictionary with the video's meta data stored in 'info' dictionary, need english transcript
 
     captions = info.get('automatic_captions',{}).get('en',[])
-    # now we have the link to each engilsh transcript format
+    # now we have a dictionary with the link to all engilsh transcript formats, still need the format
 
     for fmt in captions:
-        # going through all the formats
+        # going through all the formats, each a dictionary
         if 'json3' in fmt.get('url', ''):
-            # looking for json 3 format, which has the relevant video info
-            # checking url key (because ext isn't always there)
-            # if the url value has the string 'json3' in it, it's correct
+            # looking for string 'json3', the format, in the url key
             response = requests.get(fmt['url'])
-            # get the transcript from the link
-            #(info, captions, fmt are all dicts)
+            # get the transcript, in json3 format, from the link
             data = response.json()
             # convert the info json into a dictionary
 
             transcript = []
             for event in data.get('events', []):
-                # event is a key in a dict that has our relevant info
-                # it is a list of dictionaries
+                # event is a key in a dict, which is list of dicts, that has our relevant info
                 start = event.get('tStartMs')
-                # Start time in milliseconds
+                # start time in milliseconds
                 segs = event.get('segs')
-                # seg is a key in event
-                # it is a list of dicts, each containing a word
+                # seg is a key in event, a list of dicts, each containing a word
 
                 if start and segs:
                     # this is needed cause some segs dont' exist
@@ -51,53 +47,57 @@ def fetch_transcript(video):
                         # turning to string, formatting it
                         transcript.append(f"{timestamp} {text}")
                         # now we have created one line in the timestamps
-
-    ##j = 0
-    #for i in (transcript):
-    #    #j+=1
-    #    if (len(i) > 12): #and j%5 == 1:
-    #        print(i[:40]+"...")
     
     return transcript, info.get("duration") # need the duration for dynamic chunking
-                
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 UNWANTED_PHRASES = ["[Music]", "[Applause]", "[Laughter]", "[Noise]"]
 
 def generate_timestamps(transcript, video_duration):
-    name = "google/flan-t5-base"
+    name = "google/flan-t5-base" # can choose small, base, large (it'll take time to download if this is the first time running)
     tokenizer = AutoTokenizer.from_pretrained(name)
     model = AutoModelForSeq2SeqLM.from_pretrained(name)
 
-    # dynamically adjust chunking frequency
-    #target_num_chunks = max(5, min(10, int(video_duration // 360)))  # 5 for 20min, 10 for 60min+
-    #lines_per_chunk = max(5, len(transcript) // target_num_chunks)
-    # the above 2 lines of code are really useless, they just give worse outputs
-    
     prompts = []
     timestamps = []
     results = []
     this_chunk = ""
-    j = 1
-    
-    for i in transcript:
+
+    # change: compute how many chunks we want
+    target_chunks = max(5, min(10, int(video_duration // 360)))  # e.g. 5 for 20min, 10 for 60min+
+    interval = max(1, len(transcript) // target_chunks)  # change: interval = how often we sample lines
+
+    for idx, i in enumerate(transcript):  # change: enumerate instead of j counter
         this_chunk += " " + i.split(' ', 1)[1] if ' ' in i else i
 
-        # preprocessing (removing unnecessary tokens)
+        # preprocessing
         line = i
         for phrase in UNWANTED_PHRASES:
             line = line.replace(phrase, "")
-        line = re.sub(r"[!?.,]{2,}", ".", line)  # collapse multiple punctuations
-        line = re.sub(r"[^\x00-\x7F]+", "", line)  # remove non-ASCII
+        line = re.sub(r"[!?.,]{2,}", ".", line)
+        line = re.sub(r"[^\x00-\x7F]+", "", line)
         line = line.strip()
         if not line:
             continue
-        
-        if not i.strip(): continue
-        
-        j+=1
-        if j%30 == 1:
+
+        if idx % interval == 0:  # change: evenly spaced prompts instead of fixed every 30
             start = i.split(' ', 1)[0]
+            start_parts = start.split(':')
+            minutes = int(start_parts[0])
+
+            if minutes >= 60:
+                total_seconds = minutes * 60 + int(start_parts[1])
+                h, rem = divmod(total_seconds, 3600)
+                m, s = divmod(rem, 60)
+                start = f"{h}:{m:02d}:{s:02d}"
+    
+            #start = i.split(' ', 1)[0]
+            #minutes = int(start.split(':',1)[0])
+            #if  minutes >= 60: # converting minutes to hours
+            #    h, m = divmod(minutes, 60)
+            #    if minutes >= 10:
+            #        start = f"{h}:{m}:" + start.split(':',1)[1]
+            #    else:
+            #        start = f"{h}:0{m}:" + start.split(':',1)[1]
             prompt = (
                 "Generate a short and engaging Youtube chapter title (2-6 words) "
                 f"for the following video transcript chunk:\n\n{this_chunk}"
@@ -108,7 +108,7 @@ def generate_timestamps(transcript, video_duration):
 
     # batching logic
     BATCH_SIZE=4
-    for i in range(0, len(prompts), BATCH_SIZE):
+    for i in range(1, len(prompts), BATCH_SIZE):
         batch_prompts = prompts[i:i + BATCH_SIZE]
         batch_timestamps = timestamps[i:i+BATCH_SIZE]
         

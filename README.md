@@ -1,56 +1,40 @@
-# YouTube Timestamp Generator ⏯️
+# 🎬 YouTube Timestamp Generator
 
-This tool takes a YouTube video and generates **chapter timestamps** with **engaging titles** using an AI model (FLAN-T5). It fetches the video transcript and summarizes it into key chapters automatically.
+Generate automatic chapter titles for YouTube videos using AI (FLAN-T5 or TinyLLaMA).  
+This app helps convert transcript chunks into short, catchy chapter headings that can enhance your YouTube viewer experience or help with content organization.
 
-## 🚀 Features
+---
 
-- 📼 Takes YouTube video URL as input
-- ✂️ Dynamically segments transcript based on video duration
-- 🧠 Uses FLAN-T5 to generate chapter titles
-- 📜 Outputs timestamps + chapter names in human-readable format
-- 🔧 Built for local use — no API required
+## 🔧 How It Works
 
-## 📦 Requirements
+- 📥 You paste a YouTube video URL.
+- 📝 The app fetches the English **auto-generated transcript** (if available).
+- ✂️ It chunks the transcript and feeds each part into a language model.
+- 📌 The model returns engaging chapter titles for each timestamp.
 
-Install the dependencies:
+---
 
-```
-pip install -r requirements.txt
-```
+## 📂 App Versions
 
-## 🧪 Example
+- `app.py` → Uses **FLAN-T5-Base** via `transformers` (better accuracy, slower).
+- `app2.py` → Uses **TinyLLaMA** via **Ollama API** (lighter, local, faster — but results may vary).
 
-Input:
+---
 
-```
-https://www.youtube.com/watch?v=EXAMPLE123
-```
+## ⚠️ Limitations
 
-Output:
+- ❌ **Does not work** with videos that:
+  - Don’t have auto-captions.
+  - Use **translated** captions (e.g., from German to English) — results are usually gibberish.
+- 💡 **TinyLLaMA (app2.py)** might return lower-quality titles compared to FLAN-T5 (app.py).
 
-```
-0:00 The Rescue
-0:48 Reuniting With The Seal
-1:45 Building Trust
-...
-```
+---
 
-## 🖥️ Usage (CLI version coming soon)
+## ▶️ Run Locally
 
-For now, just run:
+### Requirements
+
+Install dependencies:
 
 ```bash
-python mk1.py
-```
-
-Then manually paste the video URL inside the script. (CLI flags like `--url` coming soon.)
-
-## 📁 Project Structure
-
-```
-.
-├── mk1.py               # Main script
-├── requirements.txt     # Python dependencies
-├── README.md            # You're here
-└── .gitignore
-```
+pip install -r requirements.txt

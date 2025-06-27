@@ -1,4 +1,5 @@
-transformers 
-torch 
-yt_dlp 
-requests 
+streamlit
+yt-dlp
+tqdm
+requests
+transformers

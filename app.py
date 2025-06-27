@@ -3,7 +3,7 @@ from mk1 import fetch_transcript, generate_timestamps  # Replace with your actua
 
 st.set_page_config(page_title="YouTube Chapter Generator", layout="centered")
 
-st.title("📽️ YouTube Chapter Timestamp Generator")
+st.title("📽️ YouTube Timestamp Generator")
 st.markdown("Generate automatic chapter titles for YouTube videos using AI (FLAN-T5).")
 
 video_url = st.text_input("Enter YouTube Video URL:")
